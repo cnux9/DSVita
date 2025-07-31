@@ -15,8 +15,8 @@ use crate::presenter::platform::imgui::{
 };
 use crate::presenter::{
     PresentEvent, PRESENTER_AUDIO_BUF_SIZE, PRESENTER_AUDIO_SAMPLE_RATE, PRESENTER_SCREEN_WIDTH, PRESENTER_SCREEN_HEIGHT, SWAP_ZONE,
-    PRESENTER_SUB_TOP_SCREEN, PRESENTER_SUB_RESIZED_TOP_SCREEN, PRESENTER_SUB_ROTATED_TOP_SCREEN, PRESENTER_SUB_RESIZED_2_5X_TOP_SCREEN,
-    PRESENTER_SUB_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_BOTTOM_SCREEN, PRESENTER_SUB_ROTATED_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_2_5X_BOTTOM_SCREEN,
+    PRESENTER_SUB_TOP_SCREEN, PRESENTER_SUB_RESIZED_TOP_SCREEN, PRESENTER_SUB_ROTATED_TOP_SCREEN, PRESENTER_SUB_RESIZED_2_5X_TOP_SCREEN, PRESENTER_SUB_PIP_TOP_SCREEN,
+    PRESENTER_SUB_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_BOTTOM_SCREEN, PRESENTER_SUB_ROTATED_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_2_5X_BOTTOM_SCREEN, PRESENTER_SUB_PIP_BOTTOM_SCREEN,
 };
 use crate::settings::{Arm7Emu, ScreenMode, SettingValue, Settings, SettingsConfig};
 use gl::types::{GLboolean, GLenum, GLuint};
@@ -220,6 +220,15 @@ impl Presenter {
                         }
                         ScreenMode::Resized_2_5x => {
                             let rect = if top_to_left { &PRESENTER_SUB_RESIZED_2_5X_BOTTOM_SCREEN } else { &PRESENTER_SUB_RESIZED_2_5X_TOP_SCREEN };
+                            if rect.is_within(x, y) {
+                                let (nx, ny) = rect.normalize(x, y);
+                                let sx = (DISPLAY_WIDTH  as u32 * nx / rect.width ) as u8;
+                                let sy = (DISPLAY_HEIGHT as u32 * ny / rect.height) as u8;
+                                ds_touch = Some((sx, sy));
+                            }
+                        }
+                        ScreenMode::Pip => {
+                            let rect = if top_to_left { &PRESENTER_SUB_PIP_BOTTOM_SCREEN } else { &PRESENTER_SUB_PIP_TOP_SCREEN };
                             if rect.is_within(x, y) {
                                 let (nx, ny) = rect.normalize(x, y);
                                 let sx = (DISPLAY_WIDTH  as u32 * nx / rect.width ) as u8;

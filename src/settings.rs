@@ -26,6 +26,7 @@ pub enum ScreenMode {
     Rotated,
     Resized,
     Resized_2_5x,
+    Pip,
 }
 
 impl From<u8> for ScreenMode {
