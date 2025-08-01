@@ -58,6 +58,7 @@ mod profiling;
 mod settings;
 mod soundtouch;
 mod utils;
+mod pip;
 
 const BUILD_PROFILE_NAME: &str = include_str!(concat!(env!("OUT_DIR"), "/build_profile_name"));
 pub const DEBUG_LOG: bool = const_str_equal(BUILD_PROFILE_NAME, "debug");

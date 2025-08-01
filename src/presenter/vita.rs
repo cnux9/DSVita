@@ -19,6 +19,7 @@ use crate::presenter::{
     PRESENTER_SUB_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_BOTTOM_SCREEN, PRESENTER_SUB_ROTATED_BOTTOM_SCREEN, PRESENTER_SUB_RESIZED_2_5X_BOTTOM_SCREEN, PRESENTER_SUB_PIP_BOTTOM_SCREEN,
 };
 use crate::settings::{Arm7Emu, ScreenMode, SettingValue, Settings, SettingsConfig};
+use crate::pip;
 use gl::types::{GLboolean, GLenum, GLuint};
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
@@ -228,7 +229,7 @@ impl Presenter {
                             }
                         }
                         ScreenMode::Pip => {
-                            let rect = if top_to_left { &PRESENTER_SUB_PIP_BOTTOM_SCREEN } else { &PRESENTER_SUB_PIP_TOP_SCREEN };
+                            let rect = if top_to_left { &pip::presenter_screen() } else { &PRESENTER_SUB_PIP_TOP_SCREEN };
                             if rect.is_within(x, y) {
                                 let (nx, ny) = rect.normalize(x, y);
                                 let sx = (DISPLAY_WIDTH  as u32 * nx / rect.width ) as u8;
@@ -242,6 +243,21 @@ impl Presenter {
             } else {
                 self.keymap |= 1 << 16;
             }
+
+            let mut back_data = SceTouchData { ..unsafe { core::mem::zeroed() } };
+            unsafe { sceTouchPeek(SCE_TOUCH_PORT_BACK, &mut back_data, 1) };
+
+            let touching_now = back_data.reportNum > 0;
+            let (cx_fb, cy_fb) = if touching_now {
+                let rpt = back_data.report[0];
+                (
+                    rpt.x as i32 * PRESENTER_SCREEN_WIDTH  as i32 / 1920,
+                    rpt.y as i32 * PRESENTER_SCREEN_HEIGHT as i32 / 943,
+                )
+            } else { (0, 0) };
+
+            pip::update_touch(cx_fb, cy_fb, touching_now);
+            pip::tick();
         }
         PresentEvent::Inputs { keymap: self.keymap, ds_touch, raw_touch }
     }

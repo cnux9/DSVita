@@ -9,6 +9,7 @@ use crate::core::graphics::gpu_mem_buf::GpuMemBuf;
 use crate::core::memory::mem::Memory;
 use crate::presenter::{Presenter, PresenterScreen, PRESENTER_SCREEN_HEIGHT, PRESENTER_SCREEN_WIDTH, PRESENTER_SUB_REGULAR, PRESENTER_SUB_RESIZED, PRESENTER_SUB_ROTATED, PRESENTER_SUB_RESIZED_2_5X, PRESENTER_SUB_PIP};
 use crate::settings::{ScreenMode, Settings};
+use crate::pip;
 use gl::types::GLuint;
 use std::intrinsics::unlikely;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
@@ -152,7 +153,7 @@ impl GpuRenderer {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             if self.common.pow_cnt1[0].enable() {
-                let blit_fb = |fbo: GLuint, screen: &PresenterScreen, src_x1: usize, src_y1: usize| {
+                let mut blit_fb = |fbo: GLuint, screen: &PresenterScreen, src_x1: usize, src_y1: usize| {
                     gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
                     gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
                     gl::BlitFramebuffer(
@@ -164,8 +165,8 @@ impl GpuRenderer {
                         screen.y as _,
                         (screen.x + screen.width) as _,
                         (screen.y + screen.height) as _,
-                        gl::COLOR_BUFFER_BIT,
-                        gl::NEAREST,
+                            gl::COLOR_BUFFER_BIT,
+                            gl::NEAREST,
                     );
                 };
 
@@ -196,25 +197,39 @@ impl GpuRenderer {
                     ScreenMode::Rotated => (DISPLAY_HEIGHT, DISPLAY_WIDTH),
                 };
 
+                let pip_screen = pip::presenter_screen();
+                let top = &screen_topology.top;
+                let bottom = if screen_topology.mode == ScreenMode::Pip { &pip_screen } else { &screen_topology.bottom };
                 let (ds_top, ds_bottom) = if self.common.pow_cnt1[0].display_swap() {
-                    (&screen_topology.top, &screen_topology.bottom)
+                    (top, bottom)
                 } else {
-                    (&screen_topology.bottom, &screen_topology.top)
+                    (bottom, top)
                 };
                 let (left_screen, right_screen) = if top_to_left {
                     (ds_top, ds_bottom)
                 } else {
                     (ds_bottom, ds_top)
-                };
+                };                
 
-                self.renderer_2d
-                    .render::<{ A }>(&self.common, self.renderer_3d.gl.fbo.color,
-                                    screen_topology.mode == ScreenMode::Rotated);
-                blit_fb(used_fbo, left_screen,  src_coords.0, src_coords.1);
-                self.renderer_2d
-                    .render::<{ B }>(&self.common, 0,
-                                    screen_topology.mode == ScreenMode::Rotated);
-                blit_fb(used_fbo, right_screen, src_coords.0, src_coords.1);
+                if top_to_left {
+                    self.renderer_2d
+                        .render::<{ B }>(&self.common, 0,
+                                        screen_topology.mode == ScreenMode::Rotated);
+                    blit_fb(used_fbo, right_screen, src_coords.0, src_coords.1);
+                    self.renderer_2d
+                        .render::<{ A }>(&self.common, self.renderer_3d.gl.fbo.color,
+                                        screen_topology.mode == ScreenMode::Rotated);
+                    blit_fb(used_fbo, left_screen,  src_coords.0, src_coords.1);
+                } else {
+                    self.renderer_2d
+                        .render::<{ A }>(&self.common, self.renderer_3d.gl.fbo.color,
+                                        screen_topology.mode == ScreenMode::Rotated);
+                    blit_fb(used_fbo, left_screen,  src_coords.0, src_coords.1);
+                    self.renderer_2d
+                        .render::<{ B }>(&self.common, 0,
+                                        screen_topology.mode == ScreenMode::Rotated);
+                    blit_fb(used_fbo, right_screen, src_coords.0, src_coords.1);
+                }
             }
 
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
